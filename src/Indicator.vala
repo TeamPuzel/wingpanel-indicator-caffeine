@@ -16,7 +16,7 @@ public class Caffeine.Indicator: Wingpanel.Indicator {
     
     bool is_active = false;
 
-    public Indicator () {
+    public Indicator() {
         Object (
             code_name: "wingpanel-indicator-caffeine"
         );
@@ -81,8 +81,55 @@ public class Caffeine.Indicator: Wingpanel.Indicator {
                 
                 if (is_active == false) {
                     is_active = true;
+                    
+                    switch (timeout) {
+                        case Timeout.NEVER:
+                            toggle_until_disabled.set_sensitive(true);
+                            toggle_half_hr.set_sensitive(false);
+                            toggle_1_hr.set_sensitive(false);
+                            toggle_2_hr.set_sensitive(false);
+                            toggle_6_hr.set_sensitive(false);
+                            break;
+                        case Timeout.MIN30:
+                            toggle_until_disabled.set_sensitive(false);
+                            toggle_half_hr.set_sensitive(true);
+                            toggle_1_hr.set_sensitive(false);
+                            toggle_2_hr.set_sensitive(false);
+                            toggle_6_hr.set_sensitive(false);
+                            break;
+                        case Timeout.MIN60:
+                            toggle_until_disabled.set_sensitive(false);
+                            toggle_half_hr.set_sensitive(false);
+                            toggle_1_hr.set_sensitive(true);
+                            toggle_2_hr.set_sensitive(false);
+                            toggle_6_hr.set_sensitive(false);
+                            break;
+                        case Timeout.MIN120:
+                            toggle_until_disabled.set_sensitive(false);
+                            toggle_half_hr.set_sensitive(false);
+                            toggle_1_hr.set_sensitive(false);
+                            toggle_2_hr.set_sensitive(true);
+                            toggle_6_hr.set_sensitive(false);
+                            break;
+                        case Timeout.MIN360:
+                            toggle_until_disabled.set_sensitive(false);
+                            toggle_half_hr.set_sensitive(false);
+                            toggle_1_hr.set_sensitive(false);
+                            toggle_2_hr.set_sensitive(false);
+                            toggle_6_hr.set_sensitive(true);
+                            break;
+                    }
+                    
+                    
                 } else if (is_active == true) {
                     is_active = false;
+                    
+                    toggle_until_disabled.set_sensitive(true);
+                    toggle_half_hr.set_sensitive(true);
+                    toggle_1_hr.set_sensitive(true);
+                    toggle_2_hr.set_sensitive(true);
+                    toggle_6_hr.set_sensitive(true);
+                    
                 }
                 return true;
             });
@@ -176,30 +223,6 @@ public class Caffeine.Indicator: Wingpanel.Indicator {
 
         return popover_widget;
     }
-    
-    void handle_forever() {
-        
-    }
-    
-    void handle_30_min() {
-        
-    }
-    
-    void handle_1_hr() {
-        
-    }
-    
-    void handle_2_hr() {
-        
-    }
-    
-    void handle_6_hr() {
-        
-    }
-    
-    void toggle_active() {
-        
-    }
 
     public override void opened() {
     }
@@ -210,7 +233,6 @@ public class Caffeine.Indicator: Wingpanel.Indicator {
 }
 
 public Wingpanel.Indicator? get_indicator(Module module, Wingpanel.IndicatorManager.ServerType server_type) {
-    debug("Activating Template Indicator");
 
     if (server_type != Wingpanel.IndicatorManager.ServerType.SESSION) {
         return null;
@@ -218,4 +240,81 @@ public Wingpanel.Indicator? get_indicator(Module module, Wingpanel.IndicatorMana
 
     var indicator = new Caffeine.Indicator();
     return indicator;
+}
+
+[DBus (name = "org.freedesktop.ScreenSaver")]
+public interface Caffeine.ScreenSaverIface: Object {
+    public abstract uint32 inhibit (string app_name, string reason) throws Error;
+    public abstract void un_inhibit (uint32 cookie) throws Error;
+}
+
+public class Caffeine.Inhibitor : Object {
+    private const string IFACE = "org.freedesktop.ScreenSaver";
+    private const string IFACE_PATH = "/ScreenSaver";
+
+    private static Inhibitor? instance = null;
+
+    private uint32? inhibit_cookie = null;
+
+    private ScreenSaverIface? screensaver_iface = null;
+
+    private bool inhibited = false;
+
+    private Inhibitor () {
+        try {
+            screensaver_iface = Bus.get_proxy_sync (BusType.SESSION, IFACE, IFACE_PATH, DBusProxyFlags.NONE);
+        } catch (Error e) {
+            warning ("Could not start screensaver interface: %s", e.message);
+        }
+    }
+
+    public static Inhibitor get_instance () {
+        if (instance == null) {
+            instance = new Inhibitor ();
+        }
+
+        return instance;
+    }
+
+    public void inhibit () {
+        if (screensaver_iface != null && !inhibited) {
+            try {
+                inhibited = true;
+                inhibit_cookie = screensaver_iface.inhibit (Constants.APP_ID, Constants.INHIBIT);
+                debug ("Inhibiting screen");
+            } catch (Error e) {
+                warning ("Could not inhibit screen: %s", e.message);
+            }
+        }
+    }
+
+    public void uninhibit () {
+        if (screensaver_iface != null && inhibited) {
+            try {
+                inhibited = false;
+                screensaver_iface.un_inhibit (inhibit_cookie);
+                debug ("Uninhibiting screen");
+            } catch (Error e) {
+                warning ("Could not uninhibit screen: %s", e.message);
+            }
+        }
+    }
+}
+
+namespace Caffeine.Constants {
+    private const string APP_ID = "@APP_ID@";
+    private const string APP_NAME = "Caffeine";
+    private const string APP_VERSION = "@APP_VERSION@";
+
+    private const int 30_MIN = 1800;
+
+    private const int 1_HR = 3600;
+
+    private const int 2_HR = 7200;
+
+    private const int 6_HR = 21600;
+
+    private const int FOREVER = -1;
+
+    private const string INHIBIT = "Prevent system sleep.";
 }
