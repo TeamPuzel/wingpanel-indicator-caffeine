@@ -1,4 +1,4 @@
-# Wingpanel Template Indicator
+# Wingpanel Caffeine
 
 <!-- Screenshot here -->
 
@@ -7,8 +7,9 @@
 You'll need the following dependencies:
 
 ```
-libwingpanel-2.0-dev
+libwingpanel
 meson
+granite
 valac
 ```
 
