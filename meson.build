@@ -1,5 +1,5 @@
 project(
-    'template',
+    'caffeine',
     'vala',
     'c'
 )
